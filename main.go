@@ -16,5 +16,6 @@ func main() {
 	})
 
 	// Get function to route to / path and an handler function that returns a JSON
+
 	app.Listen(":6000")
 }
