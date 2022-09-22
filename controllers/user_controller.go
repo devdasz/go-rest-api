@@ -10,6 +10,7 @@ import (
 	"github.com/devdasz/go-rest-api/responses"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -20,7 +21,7 @@ var userCollection *mongo.Collection = configs.GetCollection(configs.DB, "users"
 // validate models
 var validate = validator.New()
 
-// a CreateUser function that returns if failed to operate
+// a CreateUser function that returns error if failed to operate
 func CreateUser(c *fiber.Ctx) error {
 
 	// defined a timeout of 10 seconds when inserting user into the document
@@ -57,4 +58,69 @@ func CreateUser(c *fiber.Ctx) error {
 	}
 	return c.Status(http.StatusCreated).JSON(responses.UserResponse{Status: http.StatusCreated, Message: "success", Data: &fiber.Map{"data": result}})
 
+}
+
+// a GetUser function that returns error if failed to operate
+func GetAUser(c *fiber.Ctx) error {
+	// defined a timeout of 10 seconds when inserting user into the document
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+	// defined a timeout of 10 seconds when inserting user into the document
+	userId := c.Params("userId")
+	var user models.User
+	defer cancel()
+
+	objId, _ := primitive.ObjectIDFromHex(userId)
+
+	// search for the user in database
+	err := userCollection.FindOne(ctx, bson.M{"id": objId}).Decode(&user)
+
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(responses.UserResponse{Status: http.StatusInternalServerError, Message: "error", Data: &fiber.Map{"data": err.Error()}})
+	}
+	return c.Status(http.StatusOK).JSON(responses.UserResponse{Status: http.StatusOK, Message: "success", Data: &fiber.Map{"data": user}})
+}
+
+func EditAUser(c *fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	userId := c.Params("userId")
+	var user models.User
+	defer cancel()
+
+	objId, _ := primitive.ObjectIDFromHex(userId)
+
+	// validate the requets body
+	if err := c.BodyParser(&user); err != nil {
+		return c.Status(http.StatusBadRequest).JSON(responses.UserResponse{Status: http.StatusBadRequest, Message: "error", Data: &fiber.Map{"data": err.Error()}})
+	}
+	//use the validator library to validate required fields
+	if validationErr := validate.Struct(&user); validationErr != nil {
+		return c.Status(http.StatusBadRequest).JSON(responses.UserResponse{Status: http.StatusBadRequest, Message: "error", Data: &fiber.Map{"data": validationErr.Error()}})
+	}
+	// set fields value for updation
+	update := bson.M{
+		"name":        user.Name,
+		"dob":         user.Dob,
+		"address":     user.Address,
+		"description": user.Description,
+	}
+
+	// try to update on database
+	result, err := userCollection.UpdateOne(ctx, bson.M{"id": objId}, bson.M{"$set": update})
+
+	// show error if failed
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(responses.UserResponse{Status: http.StatusInternalServerError, Message: "error", Data: &fiber.Map{"data": err.Error()}})
+	}
+
+	//get updated user details
+	var updatedUser models.User
+	if result.MatchedCount == 1 {
+		err := userCollection.FindOne(ctx, bson.M{"id": objId}).Decode(&updatedUser)
+
+		if err != nil {
+			return c.Status(http.StatusInternalServerError).JSON(responses.UserResponse{Status: http.StatusInternalServerError, Message: "error", Data: &fiber.Map{"data": err.Error()}})
+		}
+	}
+	return c.Status(http.StatusOK).JSON(responses.UserResponse{Status: http.StatusOK, Message: "success", Data: &fiber.Map{"data": updatedUser}})
 }
