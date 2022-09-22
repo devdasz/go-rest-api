@@ -65,7 +65,6 @@ func GetAUser(c *fiber.Ctx) error {
 	// defined a timeout of 10 seconds when inserting user into the document
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-	// defined a timeout of 10 seconds when inserting user into the document
 	userId := c.Params("userId")
 	var user models.User
 	defer cancel()
@@ -81,7 +80,10 @@ func GetAUser(c *fiber.Ctx) error {
 	return c.Status(http.StatusOK).JSON(responses.UserResponse{Status: http.StatusOK, Message: "success", Data: &fiber.Map{"data": user}})
 }
 
+// a EditUser function that returns error if failed to operate
+
 func EditAUser(c *fiber.Ctx) error {
+	// defined a timeout of 10 seconds when inserting user into the document
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	userId := c.Params("userId")
 	var user models.User
@@ -123,4 +125,65 @@ func EditAUser(c *fiber.Ctx) error {
 		}
 	}
 	return c.Status(http.StatusOK).JSON(responses.UserResponse{Status: http.StatusOK, Message: "success", Data: &fiber.Map{"data": updatedUser}})
+}
+
+// a DeleteAUser function that returns error if failed to operate
+func DeleteAUser(c *fiber.Ctx) error {
+	// defined a timeout of 10 seconds when inserting user into the document
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	userId := c.Params("userId")
+	defer cancel()
+
+	objId, _ := primitive.ObjectIDFromHex(userId)
+	// try to delete on database
+	result, err := userCollection.DeleteOne(ctx, bson.M{"id": objId})
+
+	// if failed show error
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(responses.UserResponse{Status: http.StatusInternalServerError, Message: "error", Data: &fiber.Map{"data": err.Error()}})
+	}
+
+	// check if user vaild
+	if result.DeletedCount < 1 {
+		return c.Status(http.StatusNotFound).JSON(
+			responses.UserResponse{Status: http.StatusNotFound, Message: "error", Data: &fiber.Map{"data": "User with specified ID not found!"}},
+		)
+	}
+
+	// show deletion success message
+	return c.Status(http.StatusOK).JSON(
+		responses.UserResponse{Status: http.StatusOK, Message: "success", Data: &fiber.Map{"data": "User successfully deleted!"}},
+	)
+}
+
+func GetAllUsers(c *fiber.Ctx) error {
+	// defined a timeout of 10 seconds when inserting user into the document
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+	// a slice of user type
+	var users []models.User
+	defer cancel()
+
+	// fetch all users - the list of users
+	results, err := userCollection.Find(ctx, bson.M{})
+
+	// show error if failed
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(responses.UserResponse{Status: http.StatusInternalServerError, Message: "error", Data: &fiber.Map{"data": err.Error()}})
+	}
+	//reading from the db in an optimal way
+	defer results.Close(ctx)
+	// read the retuned list optimally using the Next attribute method to loop through the returned list of users
+	for results.Next(ctx) {
+		var singleUser models.User
+		if err = results.Decode(&singleUser); err != nil {
+			return c.Status(http.StatusInternalServerError).JSON(responses.UserResponse{Status: http.StatusInternalServerError, Message: "error", Data: &fiber.Map{"data": err.Error()}})
+		}
+
+		users = append(users, singleUser)
+	}
+
+	return c.Status(http.StatusOK).JSON(
+		responses.UserResponse{Status: http.StatusOK, Message: "success", Data: &fiber.Map{"data": users}},
+	)
 }

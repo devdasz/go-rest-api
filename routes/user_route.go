@@ -15,4 +15,8 @@ func UserRoute(app *fiber.App) {
 	app.Get("/user/:userId", controllers.GetAUser)
 	// update a user route
 	app.Put("/user/:userId", controllers.EditAUser)
+	// delete a user route
+	app.Delete("/user/:userId", controllers.DeleteAUser)
+	// get a list of users route
+	app.Get("/users", controllers.GetAllUsers)
 }
