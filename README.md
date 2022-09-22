@@ -1,5 +1,7 @@
 # GO-REST-API
-A REST api based on CURD operation written in Go and MongoDB is used as Database.
+A REST api based on CURD operation written in Go and MongoDB is used as Database. 
+
+You can check this api with https://go-rest-api.devdazz.repl.co/
 
 ## How to strat the server
 
